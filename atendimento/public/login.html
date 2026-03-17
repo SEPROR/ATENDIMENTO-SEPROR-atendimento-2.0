@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Gerenciador de Chamados</title>
+    <link rel="stylesheet" href="style.css">
+    
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🔐 Acesso Restrito</h1>
+            <p>Gerenciador de Chamados Técnicos</p>
+        </div>
+        
+        <form id="loginForm" class="login-form">
+            <div class="form-group">
+                <label for="usuario">Usuário:</label>
+                <input type="text" id="usuario" name="usuario" required autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+                <label for="senha">Senha:</label>
+                <input type="password" id="senha" name="senha" required autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="login-button" id="loginButton">
+                <span id="loginText">Entrar</span>
+                <span id="loadingText" style="display: none;">Carregando...</span>
+            </button>
+            
+            
+            <div id="errorMessage" class="error-message">
+                Credenciais inválidas. Tente novamente.
+            </div>
+        </form>
+        
+        <div class="login-links">
+            <a href="index.html">← Voltar para abertura de chamado</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const usuario = document.getElementById('usuario').value;
+            const senha = document.getElementById('senha').value;
+            const loginButton = document.getElementById('loginButton');
+            const loginText = document.getElementById('loginText');
+            const loadingText = document.getElementById('loadingText');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            // Mostrar loading
+            loginButton.disabled = true;
+            loginText.style.display = 'none';
+            loadingText.style.display = 'inline';
+            errorMessage.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ usuario, senha })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Redirecionar para o manager após login bem-sucedido
+                    window.location.href = 'manager.html';
+                } else {
+                    throw new Error(data.error || 'Credenciais inválidas');
+                }
+                
+            } catch (error) {
+                console.error('Erro no login:', error);
+                errorMessage.style.display = 'block';
+                errorMessage.textContent = error.message;
+                
+                // Reativar botão
+                loginButton.disabled = false;
+                loginText.style.display = 'inline';
+                loadingText.style.display = 'none';
+            }
+        });
+        
+        // Focar no campo de usuário ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('usuario').focus();
+        });
+    </script>
+</body>
+</html>

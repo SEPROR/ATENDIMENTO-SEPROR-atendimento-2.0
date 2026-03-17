@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abertura de Chamado</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Abertura de Chamado Técnico</h1>
+        
+        <form id="chamadoForm">
+            <div class="form-group">
+                <label for="usuario_nome">Seu Nome:</label>
+                <input type="text" id="usuario_nome" name="usuario_nome" required>
+            </div>
+
+            <div class="form-group">
+                <label for="setor">Setor :</label>
+                <select id="setor" name="setor_id" required>
+                    <option value="">Selecione o setor</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="titulo">Título do Chamado:</label>
+                <input type="text" id="titulo" name="titulo" required placeholder="Ex: Impressora sem tinta, PC não liga...">
+            </div>
+            
+            <div class="form-group">
+                <label for="descricao">Descrição do Problema:</label>
+                <textarea id="descricao" name="descricao" rows="4" required 
+                          placeholder="Descreva detalhadamente o problema..."></textarea>
+            </div>
+            
+            
+            
+            <button type="submit">Abrir Chamado</button>
+        </form>
+        
+        <div id="mensagem" class="mensagem"></div>
+        
+        <div class="link-manager">
+            <a href="manager.html">Ir para o Gerenciador de Chamados</a>
+        </div>
+    </div>
+
+    <script>
+        // Carregar setores ao iniciar a página
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Carregar setores
+                const responseSetores = await fetch('/api/setores');
+                const setores = await responseSetores.json();
+                
+                const selectSetor = document.getElementById('setor');
+                setores.forEach(setor => {
+                    const option = document.createElement('option');
+                    option.value = setor.id;
+                    option.textContent = setor.nome;
+                    selectSetor.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+            }
+        });
+        
+        // Enviar formulário de chamado
+document.getElementById('chamadoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {
+        usuario_nome: formData.get('usuario_nome'),
+        titulo: formData.get('titulo'),
+        descricao: formData.get('descricao'),
+        setor_id: formData.get('setor_id')
+    };
+    
+    try {
+        const response = await fetch('/api/chamados', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            document.getElementById('mensagem').textContent = 'Chamado aberto com sucesso! Aguarde designação de técnico.';
+            document.getElementById('mensagem').className = 'mensagem sucesso';
+            e.target.reset();
+            
+            // Limpar mensagem após 5 segundos
+            setTimeout(() => {
+                document.getElementById('mensagem').textContent = '';
+                document.getElementById('mensagem').className = 'mensagem';
+            }, 5000);
+        } else {
+            throw new Error('Erro ao abrir chamado');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        document.getElementById('mensagem').textContent = 'Erro ao abrir chamado. Tente novamente.';
+        document.getElementById('mensagem').className = 'mensagem erro';
+    }
+});
+    </script>
+</body>
+</html>

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Chamados</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Gerenciador de Chamados</h1>
+        
+        <div class="link-home">
+            <a href="index.html">Voltar para Abertura de Chamado</a>
+        </div>
+
+        <div class="user-header">
+            <div class="user-info">
+                <span id="userName">Usuário</span>
+                <button onclick="fazerLogout()" class="logout-btn">Sair</button>
+            </div>
+        </div>
+
+        <div class="filtros">
+            <h3>Filtrar por Status:</h3>
+            <select id="filtroStatus" onchange="filtrarChamados()">
+                <option value="">Todos os chamados</option>
+                <option value="aberto">Abertos (aguardando designação)</option>
+                <option value="em_andamento">Em andamento</option>
+                <option value="fechado">Fechados</option>
+            </select>
+        </div>
+        
+        <div id="listaChamados">
+            <h2>Chamados Abertos (Aguardando Designação)</h2>
+            <div id="chamadosAbertos" class="chamados-lista"></div>
+            
+            <h2>Chamados em Andamento</h2>
+            <div id="chamadosAndamento" class="chamados-lista"></div>
+            
+            <h2>Chamados Fechados</h2>
+            <div id="chamadosFechados" class="chamados-lista"></div>
+        </div>
+        
+        <div class="management-links">
+            <h2>Gerenciamento</h2>
+            <a href="tecnicos.html">Gerenciar Técnicos</a>
+            <a href="setores.html">Gerenciar Setores</a>
+            <a href="alterar-senha.html">Alterar Minha Senha</a>
+        </div>
+    </div>
+
+    <script>
+        // Verificar autenticação ao carregar a página
+        async function verificarAutenticacao() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (!data.autenticado) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                // Exibir nome do usuário e nível de acesso
+                if (data.usuario) {
+                    document.getElementById('userName').textContent = `${data.usuario} (${data.nivelAcesso || 'N/A'})`;
+                }
+                
+                // Carregar chamados após verificar autenticação
+                await carregarChamados();
+                
+            } catch (error) {
+                console.error('Erro ao verificar autenticação:', error);
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Função de logout
+        async function fazerLogout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.href = '/login.html';
+                } else {
+                    alert('Erro ao fazer logout. Tente novamente.');
+                }
+                
+            } catch (error) {
+                console.error('Erro no logout:', error);
+                alert('Erro ao fazer logout. Tente novamente.');
+            }
+        }
+
+        // Carregar chamados
+        async function carregarChamados() {
+            try {
+                const response = await fetch('/api/chamados');
+                const chamados = await response.json();
+                
+                // Verificar nível de acesso para mostrar informações adequadas
+                const authResponse = await fetch('/api/auth/status');
+                const authData = await authResponse.json();
+                
+                const abertosContainer = document.getElementById('chamadosAbertos');
+                const andamentoContainer = document.getElementById('chamadosAndamento');
+                const fechadosContainer = document.getElementById('chamadosFechados');
+                
+                abertosContainer.innerHTML = '';
+                andamentoContainer.innerHTML = '';
+                fechadosContainer.innerHTML = '';
+                
+                // Filtrar chamados baseado no nível de acesso
+                let chamadosFiltrados = chamados;
+                
+                if (!authData.isAdmin && authData.nivelAcesso && ['N1', 'N2'].includes(authData.nivelAcesso)) {
+                    chamadosFiltrados = chamados.filter(chamado => 
+                        chamado.status === 'aberto' || chamado.tecnico_id === authData.usuarioId
+                    );
+                    
+                    // Mostrar mensagem informativa
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'info-nivel';
+                    infoDiv.innerHTML = `
+                        <div class="mensagem info">
+                            <strong>Modo Técnico (Nível ${authData.nivelAcesso}):</strong> 
+                            Você está vendo apenas os chamados designados para você e chamados abertos.
+                        </div>
+                    `;
+                    document.querySelector('.filtros').appendChild(infoDiv);
+                }
+                
+                chamadosFiltrados.forEach(chamado => {
+                    const chamadoElement = criarElementoChamado(chamado, authData);
+                    
+                    if (chamado.status === 'fechado') {
+                        fechadosContainer.appendChild(chamadoElement);
+                    } else if (chamado.status === 'em_andamento') {
+                        andamentoContainer.appendChild(chamadoElement);
+                    } else if (chamado.status === 'aberto') {
+                        abertosContainer.appendChild(chamadoElement);
+                    }
+                });
+
+                // Aplicar filtro se estiver ativo
+                const filtro = document.getElementById('filtroStatus').value;
+                if (filtro) {
+                    aplicarFiltro(filtro);
+                }
+
+            } catch (error) {
+                console.error('Erro ao carregar chamados:', error);
+            }
+        }
+
+        // Filtrar chamados
+        function filtrarChamados() {
+            const filtro = document.getElementById('filtroStatus').value;
+            aplicarFiltro(filtro);
+        }
+
+        function aplicarFiltro(filtro) {
+            const sections = {
+                'aberto': document.getElementById('chamadosAbertos'),
+                'em_andamento': document.getElementById('chamadosAndamento'),
+                'fechado': document.getElementById('chamadosFechados')
+            };
+
+            if (filtro) {
+                document.querySelectorAll('.chamados-lista').forEach(section => {
+                    section.style.display = 'none';
+                });
+                document.querySelectorAll('h2').forEach(header => {
+                    header.style.display = 'none';
+                });
+
+                sections[filtro].style.display = 'block';
+                sections[filtro].previousElementSibling.style.display = 'block';
+            } else {
+                document.querySelectorAll('.chamados-lista, h2').forEach(element => {
+                    element.style.display = 'block';
+                });
+            }
+        }
+        
+        // Criar elemento HTML para um chamado
+        function criarElementoChamado(chamado, authData) {
+            const div = document.createElement('div');
+            div.className = `chamado ${chamado.status}`;
+            div.id = `chamado-${chamado.id}`;
+            
+            const dataAbertura = new Date(chamado.data_abertura).toLocaleString('pt-BR');
+            const dataFechamento = chamado.data_fechamento 
+                ? new Date(chamado.data_fechamento).toLocaleString('pt-BR') 
+                : 'Não finalizado';
+            
+            let historicoRedirecionamento = '';
+            if (chamado.tecnico_anterior_nome) {
+                historicoRedirecionamento = `<p><strong>Histórico:</strong> Redirecionado de ${chamado.tecnico_anterior_nome}</p>`;
+            }
+            
+            // Verificar permissões para ações
+            const isAdmin = authData.isAdmin || false;
+            const nivelAcesso = authData.nivelAcesso;
+            const usuarioId = authData.usuarioId;
+            
+            // Determinar quais ações mostrar
+            const podeDesignar = isAdmin || nivelAcesso === 'N3';
+            const podeFechar = isAdmin || nivelAcesso === 'N3' || 
+                              (['N1', 'N2'].includes(nivelAcesso) && chamado.tecnico_id === usuarioId);
+            const podeRedirecionar = isAdmin || nivelAcesso === 'N3';
+            
+            div.innerHTML = `
+                <h3>Chamado #${chamado.id} - ${chamado.usuario_nome} - <i>${chamado.setor_nome}</i><span class="status-badge">${formatarStatus(chamado.status)}</span></h3>
+                <p><strong>Solicitante:</strong> ${chamado.usuario_nome}</p>
+                <p><strong>Local:</strong> ${chamado.setor_nome}</p>
+                <p><strong>Descrição:</strong> ${chamado.descricao}</p>
+                ${chamado.tecnico_nome ? `<p><strong>Técnico:</strong> ${chamado.tecnico_nome}</p>` : ''}
+                <p><strong>Aberto em:</strong> ${dataAbertura}</p>
+                ${chamado.status === 'fechado' ? `<p><strong>Fechado em:</strong> ${dataFechamento}</p>` : ''}
+                ${historicoRedirecionamento}
+                
+                ${chamado.status === 'fechado' ? `
+                    <div class="detalhes-solucao">
+                        <p><strong>Problema Especificado:</strong> ${chamado.problema || 'Não informado'}</p>
+                        <p><strong>Solução Aplicada:</strong> ${chamado.solucao || 'Não informada'}</p>
+                    </div>
+                ` : ''}
+                
+                <div class="acoes-chamado">
+                    ${chamado.status === 'aberto' && podeDesignar ? `
+                        <button onclick="designarTecnico(${chamado.id})">Designar Técnico</button>
+                    ` : ''}
+                    
+                    ${chamado.status === 'em_andamento' && podeFechar ? `
+                        <button onclick="fecharChamado(${chamado.id})">Fechar Chamado</button>
+                    ` : ''}
+                    
+                    ${chamado.status === 'em_andamento' && podeRedirecionar ? `
+                        <button onclick="mostrarFormRedirecionar(${chamado.id})">Redirecionar</button>
+                    ` : ''}
+                    
+                    ${!podeDesignar && !podeFechar && !podeRedirecionar ? `
+                        <span class="sem-acao">Apenas visualização</span>
+                    ` : ''}
+                </div>
+                
+                ${chamado.status === 'aberto' && podeDesignar ? `
+                    <div id="formDesignar-${chamado.id}" class="form-oculto">
+                        <h4>Designar Técnico</h4>
+                        <form onsubmit="event.preventDefault(); confirmarDesignacao(${chamado.id})">
+                            <div class="form-group">
+                                <label for="tecnicoDesignar-${chamado.id}">Selecionar Técnico:</label>
+                                <select id="tecnicoDesignar-${chamado.id}" required>
+                                    <option value="">Selecione um técnico</option>
+                                </select>
+                            </div>
+                            <button type="submit">Designar Técnico</button>
+                            <button type="button" onclick="ocultarFormDesignar(${chamado.id})">Cancelar</button>
+                        </form>
+                    </div>
+                ` : ''}
+                
+                ${chamado.status === 'em_andamento' && podeFechar ? `
+                    <div id="formFechar-${chamado.id}" class="form-oculto">
+                        <h4>Fechar Chamado</h4>
+                        <form onsubmit="event.preventDefault(); confirmarFechamento(${chamado.id})">
+                            <div class="form-group">
+                                <label for="problema-${chamado.id}">Problema Especificado:</label>
+                                <textarea id="problema-${chamado.id}" rows="3" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="solucao-${chamado.id}">Solução Aplicada:</label>
+                                <textarea id="solucao-${chamado.id}" rows="3" required></textarea>
+                            </div>
+                            <button type="submit">Confirmar Fechamento</button>
+                            <button type="button" onclick="ocultarFormFechar(${chamado.id})">Cancelar</button>
+                        </form>
+                    </div>
+                ` : ''}
+                
+                ${chamado.status === 'em_andamento' && podeRedirecionar ? `
+                    <div id="formRedirecionar-${chamado.id}" class="form-oculto">
+                        <h4>Redirecionar Chamado</h4>
+                        <form onsubmit="event.preventDefault(); confirmarRedirecionamento(${chamado.id})">
+                            <div class="form-group">
+                                <label for="novoTecnico-${chamado.id}">Novo Técnico:</label>
+                                <select id="novoTecnico-${chamado.id}" required>
+                                    <option value="">Selecione um técnico</option>
+                                </select>
+                            </div>
+                            <button type="submit">Confirmar Redirecionamento</button>
+                            <button type="button" onclick="ocultarFormRedirecionar(${chamado.id})">Cancelar</button>
+                        </form>
+                    </div>
+                ` : ''}
+            `;
+            
+            // Preencher selects após criar o elemento
+            if (chamado.status !== 'fechado') {
+                setTimeout(() => {
+                    if (chamado.status === 'aberto' && podeDesignar) {
+                        preencherSelectTecnicosDesignar(chamado.id);
+                    } else if (chamado.status === 'em_andamento' && podeRedirecionar) {
+                        preencherSelectTecnicosRedirecionar(chamado.id);
+                    }
+                }, 100);
+            }
+            
+            return div;
+        }
+        
+        // Formatador de status
+        function formatarStatus(status) {
+            const statusMap = {
+                'aberto': 'Aberto',
+                'em_andamento': 'Em Andamento',
+                'fechado': 'Fechado',
+                'redirecionado': 'Redirecionado'
+            };
+            return statusMap[status] || status;
+        }
+        
+        // Designar técnico
+        function designarTecnico(chamadoId) {
+            document.querySelectorAll('.form-oculto').forEach(form => {
+                form.style.display = 'none';
+            });
+            
+            const formDesignar = document.getElementById(`formDesignar-${chamadoId}`);
+            if (formDesignar) {
+                formDesignar.style.display = 'block';
+            }
+        }
+        
+        // Preencher select de técnicos para designação
+        async function preencherSelectTecnicosDesignar(chamadoId) {
+            try {
+                const response = await fetch('/api/tecnicos');
+                const tecnicos = await response.json();
+                
+                const select = document.getElementById(`tecnicoDesignar-${chamadoId}`);
+                if (select) {
+                    select.innerHTML = '<option value="">Selecione um técnico</option>';
+                    tecnicos.forEach(tecnico => {
+                        const option = document.createElement('option');
+                        option.value = tecnico.id;
+                        option.textContent = tecnico.nome;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Erro ao carregar técnicos:', error);
+            }
+        }
+        
+        // Confirmar designação de técnico
+        async function confirmarDesignacao(chamadoId) {
+            const tecnicoId = document.getElementById(`tecnicoDesignar-${chamadoId}`).value;
+            
+            if (!tecnicoId) {
+                alert('Selecione um técnico para designar o chamado.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/chamados/${chamadoId}/designar`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tecnico_id: tecnicoId
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Técnico designado com sucesso!');
+                    carregarChamados();
+                } else {
+                    throw new Error('Erro ao designar técnico');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao designar técnico. Tente novamente.');
+            }
+        }
+        
+        // Ocultar formulário de designação
+        function ocultarFormDesignar(chamadoId) {
+            const formDesignar = document.getElementById(`formDesignar-${chamadoId}`);
+            if (formDesignar) {
+                formDesignar.style.display = 'none';
+            }
+        }
+        
+        // Preencher select de técnicos para redirecionamento (excluindo o atual)
+        async function preencherSelectTecnicosRedirecionar(chamadoId) {
+            try {
+                console.log(`🔧 Preenchendo select para redirecionamento do chamado ${chamadoId}`);
+                
+                // Obter dados do chamado
+                const chamadoResponse = await fetch(`/api/chamados/${chamadoId}`);
+                if (!chamadoResponse.ok) {
+                    throw new Error('Erro ao buscar dados do chamado');
+                }
+                const chamado = await chamadoResponse.json();
+                
+                // Obter lista de técnicos
+                const tecnicosResponse = await fetch('/api/tecnicos');
+                const tecnicos = await tecnicosResponse.json();
+                
+                const select = document.getElementById(`novoTecnico-${chamadoId}`);
+                if (!select) {
+                    console.error(`Select novoTecnico-${chamadoId} não encontrado`);
+                    return;
+                }
+                
+                select.innerHTML = '<option value="">Selecione um técnico</option>';
+                let opcoesAdicionadas = 0;
+                
+                tecnicos.forEach(tecnico => {
+                    if (tecnico.id !== chamado.tecnico_id) {
+                        const option = document.createElement('option');
+                        option.value = tecnico.id;
+                        option.textContent = tecnico.nome;
+                        select.appendChild(option);
+                        opcoesAdicionadas++;
+                    }
+                });
+                
+                console.log(`✅ ${opcoesAdicionadas} técnicos adicionados ao select`);
+                
+            } catch (error) {
+                console.error('❌ Erro ao preencher select de redirecionamento:', error);
+            }
+        }
+        
+        // Mostrar formulário de fechamento
+        function fecharChamado(chamadoId) {
+            document.querySelectorAll('.form-oculto').forEach(form => {
+                form.style.display = 'none';
+            });
+            
+            const formFechar = document.getElementById(`formFechar-${chamadoId}`);
+            if (formFechar) {
+                formFechar.style.display = 'block';
+            }
+        }
+        
+        // Ocultar formulário de fechamento
+        function ocultarFormFechar(chamadoId) {
+            const formFechar = document.getElementById(`formFechar-${chamadoId}`);
+            if (formFechar) {
+                formFechar.style.display = 'none';
+            }
+        }
+        
+        // Mostrar formulário de redirecionamento
+        function mostrarFormRedirecionar(chamadoId) {
+            console.log(`📋 Mostrando formulário de redirecionamento para chamado ${chamadoId}`);
+            
+            document.querySelectorAll('.form-oculto').forEach(form => {
+                form.style.display = 'none';
+            });
+            
+            const formRedirecionar = document.getElementById(`formRedirecionar-${chamadoId}`);
+            if (formRedirecionar) {
+                formRedirecionar.style.display = 'block';
+                console.log('✅ Formulário exibido');
+                
+                // Recarregar a lista de técnicos (caso tenha mudado)
+                preencherSelectTecnicosRedirecionar(chamadoId);
+            } else {
+                console.error('❌ Formulário não encontrado');
+            }
+        }
+        
+        // Ocultar formulário de redirecionamento
+        function ocultarFormRedirecionar(chamadoId) {
+            const formRedirecionar = document.getElementById(`formRedirecionar-${chamadoId}`);
+            if (formRedirecionar) {
+                formRedirecionar.style.display = 'none';
+            }
+        }
+        
+        // Confirmar fechamento do chamado
+        async function confirmarFechamento(chamadoId) {
+            const problema = document.getElementById(`problema-${chamadoId}`).value;
+            const solucao = document.getElementById(`solucao-${chamadoId}`).value;
+            
+            try {
+                const response = await fetch(`/api/chamados/${chamadoId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        status: 'fechado',
+                        problema: problema,
+                        solucao: solucao
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Chamado fechado com sucesso!');
+                    carregarChamados();
+                } else {
+                    throw new Error('Erro ao fechar chamado');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao fechar chamado. Tente novamente.');
+            }
+        }
+        
+        // Confirmar redirecionamento do chamado
+        async function confirmarRedirecionamento(chamadoId) {
+            const novoTecnicoId = document.getElementById(`novoTecnico-${chamadoId}`).value;
+            
+            if (!novoTecnicoId) {
+                alert('Selecione um técnico para redirecionar o chamado.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/chamados/${chamadoId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        status: 'redirecionado',
+                        tecnico_id: novoTecnicoId
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Chamado redirecionado com sucesso!');
+                    carregarChamados();
+                } else {
+                    throw new Error('Erro ao redirecionar chamado');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao redirecionar chamado. Tente novamente.');
+            }
+        }
+        
+        // Verificar autenticação quando a página carregar
+        document.addEventListener('DOMContentLoaded', verificarAutenticacao);
+    </script>
+</body>
+</html>

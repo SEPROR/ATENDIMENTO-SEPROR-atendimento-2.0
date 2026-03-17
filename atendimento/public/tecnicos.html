@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Técnicos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Gerenciar Técnicos</h1>
+        
+        <div class="user-header">
+            <div class="user-info">
+                <span id="userName">Usuário</span>
+                <button onclick="fazerLogout()" class="logout-btn">Sair</button>
+            </div>
+        </div>
+        
+        <div class="link-home">
+            <a href="index.html">Voltar para Abertura de Chamado</a>
+            <a>  ||  </a>
+            <a href="manager.html">Voltar para Gerenciador de Chamados</a>
+        </div>
+        
+        <div class="management-section">
+            <h2>Adicionar Novo Técnico</h2>
+            <form id="tecnicoForm">
+                <div class="form-group">
+                    <label for="nome">Nome:</label>
+                    <input type="text" id="nome" name="nome" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="usuario_login">Usuário de Login:</label>
+                    <input type="text" id="usuario_login" name="usuario_login" 
+                    placeholder="Deixe em branco para gerar automaticamente">
+                </div>
+                
+                <div class="form-group">
+                    <label for="whatsapp">WhatsApp (apenas números):</label>
+                    <input type="tel" id="whatsapp" name="whatsapp" pattern="[0-9]{10,11}" 
+                           placeholder="11999999999" required>
+                    <small>Formato: DDD + número (ex: 11999999999)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="nivel_id">Nível de Atendimento:</label>
+                    <select id="nivel_id" name="nivel_id" required>
+                        <option value="">Selecione o nível</option>
+                        <!-- Será preenchido via JavaScript -->
+                    </select>
+                </div>
+                
+                <button type="submit">Adicionar Técnico</button>
+            </form>
+            
+            <div id="mensagemTecnico" class="mensagem"></div>
+        </div>
+        
+        <div class="management-section">
+            <h2>Técnicos Cadastrados</h2>
+            <div id="listaTecnicos"></div>
+        </div>
+    </div>
+
+    <script>
+       // Verificar autenticação ao carregar a página
+async function verificarAutenticacao() {
+    try {
+        const response = await fetch('/api/auth/status');
+        const data = await response.json();
+        
+        if (!data.autenticado) {
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        // Exibir nome do usuário
+        if (data.usuario) {
+            document.getElementById('userName').textContent = data.usuario;
+        }
+        
+        // Carregar dados após verificar autenticação
+        await carregarDados();
+        
+    } catch (error) {
+        console.error('Erro ao verificar autenticação:', error);
+        window.location.href = '/login.html';
+    }
+}
+
+// Função de logout
+async function fazerLogout() {
+    try {
+        const response = await fetch('/api/logout', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = '/login.html';
+        } else {
+            alert('Erro ao fazer logout. Tente novamente.');
+        }
+        
+    } catch (error) {
+        console.error('Erro no logout:', error);
+        alert('Erro ao fazer logout. Tente novamente.');
+    }
+}
+
+// Carregar níveis de técnico e técnicos
+async function carregarDados() {
+    try {
+        // Carregar níveis
+        const responseNiveis = await fetch('/api/niveis-tecnico');
+        const niveis = await responseNiveis.json();
+        
+        const selectNivel = document.getElementById('nivel_id');
+        selectNivel.innerHTML = '<option value="">Selecione o nível</option>';
+        niveis.forEach(nivel => {
+            const option = document.createElement('option');
+            option.value = nivel.id;
+            option.textContent = `${nivel.nome} (${nivel.descricao})`;
+            selectNivel.appendChild(option);
+        });
+        
+        // Carregar técnicos
+        await carregarTecnicos();
+    } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+    }
+}
+
+// Carregar técnicos
+async function carregarTecnicos() {
+    try {
+        const response = await fetch('/api/tecnicos/todos');
+        const tecnicos = await response.json();
+        
+        // Carregar níveis para exibir informações completas
+        const responseNiveis = await fetch('/api/niveis-tecnico');
+        const niveis = await responseNiveis.json();
+        const niveisMap = {};
+        niveis.forEach(nivel => {
+            niveisMap[nivel.id] = nivel;
+        });
+        
+        const listaTecnicos = document.getElementById('listaTecnicos');
+        listaTecnicos.innerHTML = '';
+        
+        if (tecnicos.length === 0) {
+            listaTecnicos.innerHTML = '<p>Nenhum técnico cadastrado.</p>';
+            return;
+        }
+        
+        tecnicos.forEach(tecnico => {
+            const nivelInfo = niveisMap[tecnico.nivel_id] || {};
+            const nivelClass = nivelInfo.codigo_acesso ? `nivel-${nivelInfo.codigo_acesso.toLowerCase()}` : '';
+            
+            const tecnicoElement = document.createElement('div');
+            tecnicoElement.className = `item-lista ${tecnico.ativo ? '' : 'inativo'}`;
+            
+            tecnicoElement.innerHTML = `
+                <div class="item-info">
+                    <h3>${tecnico.nome} ${tecnico.ativo ? '' : '<span class="status-badge">Inativo</span>'}</h3>
+                    <p>WhatsApp: ${formatarWhatsApp(tecnico.whatsapp)}</p>
+                    <p>Usuário: ${tecnico.usuario_login || 'Não definido'}</p>
+                    <p>Nível: ${nivelInfo.codigo_acesso ? `<span class="nivel-badge ${nivelClass}">${nivelInfo.codigo_acesso}</span> - ${nivelInfo.descricao}` : 'Não definido'}</p>
+                </div>
+                
+                <div class="item-acoes">
+                    ${tecnico.whatsapp ? `<a href="https://wa.me/55${tecnico.whatsapp}" target="_blank" class="whatsapp-btn">💬 WhatsApp</a>` : ''}
+                    <button onclick="editarTecnico(${tecnico.id}, '${tecnico.nome}', '${tecnico.whatsapp}', ${tecnico.nivel_id}, ${tecnico.ativo}, '${tecnico.usuario_login || ''}')">Editar</button>
+                    ${tecnico.ativo ? `<button onclick="excluirTecnico(${tecnico.id})">Excluir</button>` : ''}
+                </div>
+            `;
+            
+            listaTecnicos.appendChild(tecnicoElement);
+        });
+    } catch (error) {
+        console.error('Erro ao carregar técnicos:', error);
+    }
+}
+
+// Formatador de WhatsApp
+function formatarWhatsApp(numero) {
+    if (!numero) return 'Não informado';
+    // Formato: (11) 99999-9999
+    const ddd = numero.substring(0, 2);
+    const parte1 = numero.substring(2, 7);
+    const parte2 = numero.substring(7);
+    return `(${ddd}) ${parte1}-${parte2}`;
+}
+
+// Adicionar novo técnico
+document.getElementById('tecnicoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {
+        nome: formData.get('nome'),
+        whatsapp: formData.get('whatsapp').replace(/\D/g, ''), // Remove não-números
+        nivel_id: formData.get('nivel_id'),
+        usuario_login: formData.get('usuario_login') || null
+    };
+    
+    try {
+        const response = await fetch('/api/tecnicos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            document.getElementById('mensagemTecnico').textContent = 'Técnico adicionado com sucesso!';
+            document.getElementById('mensagemTecnico').className = 'mensagem sucesso';
+            e.target.reset();
+            carregarTecnicos();
+            
+            setTimeout(() => {
+                document.getElementById('mensagemTecnico').textContent = '';
+                document.getElementById('mensagemTecnico').className = 'mensagem';
+            }, 3000);
+        } else {
+            const error = await response.json();
+            throw new Error(error.error || 'Erro ao adicionar técnico');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        document.getElementById('mensagemTecnico').textContent = error.message;
+        document.getElementById('mensagemTecnico').className = 'mensagem erro';
+    }
+});
+
+// Editar técnico
+async function editarTecnico(id, nome, whatsapp, nivel_id, ativo, usuario_login) {
+    // Carregar níveis para o prompt
+    const responseNiveis = await fetch('/api/niveis-tecnico');
+    const niveis = await responseNiveis.json();
+    
+    let niveisTexto = 'Níveis disponíveis:\n';
+    niveis.forEach((nivel, index) => {
+        niveisTexto += `${index + 1}. ${nivel.codigo_acesso} - ${nivel.descricao}\n`;
+    });
+    
+    const novoNome = prompt('Editar nome do técnico:', nome);
+    if (novoNome === null) return;
+    
+    const novoWhatsapp = prompt('Editar WhatsApp (apenas números, ex: 11999999999):', whatsapp);
+    if (novoWhatsapp === null) return;
+    
+    const novoUsuarioLogin = prompt('Editar usuário de login:', usuario_login || '');
+    if (novoUsuarioLogin === null) return;
+    
+    const nivelEscolha = prompt(`${niveisTexto}\nDigite o número do novo nível (1-${niveis.length}):`, 
+                            niveis.findIndex(n => n.id === nivel_id) + 1);
+    if (nivelEscolha === null) return;
+    
+    const novoNivelId = niveis[parseInt(nivelEscolha) - 1]?.id || nivel_id;
+    const novoAtivo = confirm('Técnico está ativo?');
+    
+    fetch(`/api/tecnicos/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            nome: novoNome,
+            whatsapp: novoWhatsapp.replace(/\D/g, ''),
+            nivel_id: novoNivelId,
+            ativo: novoAtivo,
+            usuario_login: novoUsuarioLogin
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert('Técnico atualizado com sucesso!');
+        carregarTecnicos();
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao atualizar técnico.');
+    });
+}
+// Excluir técnico
+function excluirTecnico(id) {
+    if (!confirm('Tem certeza que deseja excluir este técnico?')) return;
+    
+    fetch(`/api/tecnicos/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            alert('Técnico excluído com sucesso!');
+            carregarTecnicos();
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao excluir técnico.');
+    });
+}
+
+// Verificar autenticação quando a página carregar
+document.addEventListener('DOMContentLoaded', verificarAutenticacao);
+    </script>
+</body>
+</html>

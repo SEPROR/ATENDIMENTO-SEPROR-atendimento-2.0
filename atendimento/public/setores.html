@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Setores</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Gerenciar Setores</h1>
+        
+        <div class="link-home">
+            <a href="index.html">Voltar para Abertura de Chamado</a>
+            <a>  ||  </a>
+            <a href="manager.html">Voltar para Gerenciador de Chamados</a>
+        </div>
+        
+        <div class="management-section">
+            <h2>Adicionar Novo Setor</h2>
+            <form id="setorForm">
+                <div class="form-group">
+                    <label for="nome">Nome:</label>
+                    <input type="text" id="nome" name="nome" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="descricao">Descrição:</label>
+                    <textarea id="descricao" name="descricao" rows="3"></textarea>
+                </div>
+                
+                <button type="submit">Adicionar Setor</button>
+            </form>
+            
+            <div id="mensagemSetor" class="mensagem"></div>
+        </div>
+        
+        <div class="management-section">
+            <h2>Setores Cadastrados</h2>
+            <div id="listaSetores"></div>
+        </div>
+    </div>
+
+    <script>
+        // Carregar setores
+        async function carregarSetores() {
+            try {
+                const response = await fetch('/api/setores/todos');
+                const setores = await response.json();
+                
+                const listaSetores = document.getElementById('listaSetores');
+                listaSetores.innerHTML = '';
+                
+                if (setores.length === 0) {
+                    listaSetores.innerHTML = '<p>Nenhum setor cadastrado.</p>';
+                    return;
+                }
+                
+                setores.forEach(setor => {
+                    const setorElement = document.createElement('div');
+                    setorElement.className = `item-lista ${setor.ativo ? '' : 'inativo'}`;
+                    
+                    setorElement.innerHTML = `
+                        <div class="item-info">
+                            <h3>${setor.nome} ${setor.ativo ? '' : '<span class="status-badge">Inativo</span>'}</h3>
+                         <!--   <p>Descrição: ${setor.descricao || 'Nenhuma descrição'}</p>
+                            <p>ID: ${setor.id}</p> -->
+                        </div>
+                        
+                        <div class="item-acoes">
+                            <button onclick="editarSetor(${setor.id}, '${setor.nome}', '${setor.descricao || ''}', ${setor.ativo})">Editar</button>
+                            ${setor.ativo ? `<button onclick="excluirSetor(${setor.id})">Excluir</button>` : ''}
+                        </div>
+                    `;
+                    
+                    listaSetores.appendChild(setorElement);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar setores:', error);
+            }
+        }
+        
+        // Adicionar novo setor
+        document.getElementById('setorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                nome: formData.get('nome'),
+                descricao: formData.get('descricao')
+            };
+            
+            try {
+                const response = await fetch('/api/setores', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    document.getElementById('mensagemSetor').textContent = 'Setor adicionado com sucesso!';
+                    document.getElementById('mensagemSetor').className = 'mensagem sucesso';
+                    e.target.reset();
+                    carregarSetores();
+                    
+                    setTimeout(() => {
+                        document.getElementById('mensagemSetor').textContent = '';
+                        document.getElementById('mensagemSetor').className = 'mensagem';
+                    }, 3000);
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Erro ao adicionar setor');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('mensagemSetor').textContent = error.message;
+                document.getElementById('mensagemSetor').className = 'mensagem erro';
+            }
+        });
+        
+        // Editar setor
+        function editarSetor(id, nome, descricao, ativo) {
+            const novoNome = prompt('Editar nome do setor:', nome);
+            if (novoNome === null) return;
+            
+            const novaDescricao = prompt('Editar descrição do setor:', descricao);
+            
+            const novoAtivo = confirm('Setor está ativo?');
+            
+            fetch(`/api/setores/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    nome: novoNome,
+                    descricao: novaDescricao,
+                    ativo: novoAtivo
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Setor atualizado com sucesso!');
+                carregarSetores();
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao atualizar setor.');
+            });
+        }
+        
+        // Excluir setor
+        function excluirSetor(id) {
+            if (!confirm('Tem certeza que deseja excluir este setor?')) return;
+            
+            fetch(`/api/setores/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert('Setor excluído com sucesso!');
+                    carregarSetores();
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao excluir setor.');
+            });
+        }
+        
+        // Carregar setores quando a página for carregada
+        document.addEventListener('DOMContentLoaded', carregarSetores);
+    </script>
+</body>
+</html>

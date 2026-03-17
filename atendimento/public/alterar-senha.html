@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alterar Senha</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Alterar Senha</h1>
+        
+        <div class="user-header">
+            <div class="user-info">
+                <span id="userName">Usuário</span>
+                <button onclick="fazerLogout()" class="logout-btn">Sair</button>
+            </div>
+        </div>
+        
+        <div class="link-home">
+            <a href="manager.html">← Voltar para o Gerenciador</a>
+        </div>
+        
+        <div class="management-section">
+            <form id="alterarSenhaForm">
+                <div class="form-group">
+                    <label for="senhaAtual">Senha Atual:</label>
+                    <input type="password" id="senhaAtual" name="senhaAtual" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="novaSenha">Nova Senha:</label>
+                    <input type="password" id="novaSenha" name="novaSenha" required minlength="6">
+                    <small>Mínimo de 6 caracteres</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmarSenha">Confirmar Nova Senha:</label>
+                    <input type="password" id="confirmarSenha" name="confirmarSenha" required>
+                </div>
+                
+                <button type="submit">Alterar Senha</button>
+            </form>
+            
+            <div id="mensagemSenha" class="mensagem"></div>
+        </div>
+    </div>
+
+    <script>
+        // Verificar autenticação
+        async function verificarAutenticacao() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (!data.autenticado) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                document.getElementById('userName').textContent = data.usuario;
+                
+            } catch (error) {
+                console.error('Erro ao verificar autenticação:', error);
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Função de logout
+        async function fazerLogout() {
+            try {
+                const response = await fetch('/api/logout', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.href = '/login.html';
+                } else {
+                    alert('Erro ao fazer logout.');
+                }
+                
+            } catch (error) {
+                console.error('Erro no logout:', error);
+                alert('Erro ao fazer logout.');
+            }
+        }
+
+        // Alterar senha
+document.getElementById('alterarSenhaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const senhaAtual = document.getElementById('senhaAtual').value;
+  const novaSenha = document.getElementById('novaSenha').value;
+  const confirmarSenha = document.getElementById('confirmarSenha').value;
+  const mensagem = document.getElementById('mensagemSenha');
+  
+  // Validar senhas
+  if (novaSenha !== confirmarSenha) {
+    mensagem.textContent = 'As senhas não coincidem.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+  
+  if (novaSenha.length < 6) {
+    mensagem.textContent = 'A nova senha deve ter pelo menos 6 caracteres.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+  
+  try {
+    // Obter ID do usuário da sessão
+    const authResponse = await fetch('/api/auth/status');
+    const authData = await authResponse.json();
+    
+    if (!authData.autenticado) {
+      window.location.href = '/login.html';
+      return;
+    }
+    
+    // Verificar se temos um usuarioId válido
+    if (!authData.usuarioId) {
+      throw new Error('ID do usuário não encontrado na sessão. Faça login novamente.');
+    }
+    
+    // Fazer requisição para alterar senha
+    const response = await fetch(`/api/tecnicos/${authData.usuarioId}/senha`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        senhaAtual: senhaAtual,
+        novaSenha: novaSenha
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      mensagem.textContent = data.message || 'Senha alterada com sucesso!';
+      mensagem.className = 'mensagem sucesso';
+      document.getElementById('alterarSenhaForm').reset();
+      
+      setTimeout(() => {
+        window.location.href = 'manager.html';
+      }, 2000);
+      
+    } else {
+      throw new Error(data.error || 'Erro ao alterar senha');
+    }
+    
+  } catch (error) {
+    console.error('Erro:', error);
+    mensagem.textContent = error.message;
+    mensagem.className = 'mensagem erro';
+  }
+});
+
+        // Verificar autenticação ao carregar a página
+        document.addEventListener('DOMContentLoaded', verificarAutenticacao);
+    </script>
+</body>
+</html>
