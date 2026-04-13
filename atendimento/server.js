@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const port = process.env.PORT || 2999;
