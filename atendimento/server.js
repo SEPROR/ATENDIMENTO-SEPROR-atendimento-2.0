@@ -95,13 +95,12 @@ app.use(verificarAutenticacao);
 
 // Configuração do banco de dados
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'gerenciador_chamados',
-  password: process.env.DB_PASSWORD || '123456',
-  port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER || 'postgres.lcvuovhnsfjlprzivdsp',
+  host: process.env.DB_HOST || 'aws-1-us-east-1.pooler.supabase.com',
+  database: process.env.DB_NAME || 'postgres',
+  password: process.env.DB_PASSWORD || 's3pr0r@m!*_',
+  port: process.env.DB_PORT || 6543,
 });
-
 // Configurações do Telegram
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8588696043:AAGPRLDK9mAIWxaSgv95IKVuZyK6C3nzJzg';
 
@@ -1095,10 +1094,6 @@ app.get('/api/test-telegram', async (req, res) => {
 setInterval(checkTelegramMessages, 3000);
 
 // Iniciar o servidor em modo rede
-app.listen(port, host, () => {
-  console.log(`🚀 Servidor rodando em http://${host}:${port}`);
-  console.log(`🌐 Acessível em rede local`);
-  console.log(`📱 Acesso externo: http://[SEU-IP]:${port}`);
-  console.log(`🔐 Sistema de autenticação ativo`);
- 
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Servidor rodando: http://localhost:${port}`);
 });
