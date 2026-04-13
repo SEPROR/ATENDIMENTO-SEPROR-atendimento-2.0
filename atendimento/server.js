@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const port = process.env.PORT || 2999;
-const host = process.env.HOST || '10.46.5.244';
+const host = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(bodyParser.json());
