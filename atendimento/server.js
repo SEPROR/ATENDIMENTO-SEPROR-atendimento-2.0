@@ -9,7 +9,7 @@ require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 2999;
-const host = process.env.HOST || ' 10.46.2.7';
+const host = process.env.HOST || '10.46.5.244';
 
 // Middleware
 app.use(bodyParser.json());
@@ -99,11 +99,11 @@ const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || 'gerenciador_chamados',
   password: process.env.DB_PASSWORD || '123456',
-  port: process.env.DB_PORT || 5433,
+  port: process.env.DB_PORT || 5432,
 });
 
 // Configurações do Telegram
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8138818688:AAElano-FkgxWUu_KKbMkugJXiO9HRJl1Cw';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8588696043:AAGPRLDK9mAIWxaSgv95IKVuZyK6C3nzJzg';
 
 // Variável para controle de polling
 let lastUpdateId = 0;
