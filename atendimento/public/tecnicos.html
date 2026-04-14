@@ -115,7 +115,7 @@ async function fazerLogout() {
 async function carregarDados() {
     try {
         // Carregar níveis
-        const responseNiveis = await fetch('/api/niveis-tecnico');
+        const responseNiveis = await fetch('/api/nivel-tecnico');
         const niveis = await responseNiveis.json();
         
         const selectNivel = document.getElementById('nivel_id');
@@ -141,7 +141,7 @@ async function carregarTecnicos() {
         const tecnicos = await response.json();
         
         // Carregar níveis para exibir informações completas
-        const responseNiveis = await fetch('/api/niveis-tecnico');
+        const responseNiveis = await fetch('/api/nivel-tecnico');
         const niveis = await responseNiveis.json();
         const niveisMap = {};
         niveis.forEach(nivel => {
@@ -240,7 +240,7 @@ document.getElementById('tecnicoForm').addEventListener('submit', async (e) => {
 // Editar técnico
 async function editarTecnico(id, nome, whatsapp, nivel_id, ativo, usuario_login) {
     // Carregar níveis para o prompt
-    const responseNiveis = await fetch('/api/niveis-tecnico');
+    const responseNiveis = await fetch('/api/nivel-tecnico');
     const niveis = await responseNiveis.json();
     
     let niveisTexto = 'Níveis disponíveis:\n';

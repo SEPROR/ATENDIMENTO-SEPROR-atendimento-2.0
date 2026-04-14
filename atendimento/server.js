@@ -554,7 +554,7 @@ app.post('/api/login', async (req, res) => {
     const tecnicoResult = await pool.query(
       `SELECT t.id, t.nome, t.usuario_login, t.senha_hash, n.codigo_acesso as nivel_acesso
        FROM tecnicos t
-       LEFT JOIN niveis_tecnico n ON t.nivel_id = n.id
+       LEFT JOIN nivel_tecnico n ON t.nivel_id = n.id
        WHERE t.usuario_login = $1 AND t.ativo = TRUE`,
       [usuario]
     );
@@ -640,7 +640,7 @@ app.get('/api/tecnicos', async (req, res) => {
     const query = `
       SELECT t.*, n.nome as nivel_nome, n.descricao as nivel_descricao, n.codigo_acesso
       FROM tecnicos t 
-      LEFT JOIN niveis_tecnico n ON t.nivel_id = n.id 
+      LEFT JOIN nivel_tecnico n ON t.nivel_id = n.id 
       WHERE t.ativo = TRUE 
       ORDER BY t.nome
     `;
@@ -832,7 +832,7 @@ app.get('/api/tecnicos/todos', async (req, res) => {
     const query = `
       SELECT t.*, n.nome as nivel_nome, n.descricao as nivel_descricao, n.codigo_acesso
       FROM tecnicos t 
-      LEFT JOIN niveis_tecnico n ON t.nivel_id = n.id 
+      LEFT JOIN nivel_tecnico n ON t.nivel_id = n.id 
       ORDER BY t.nome
     `;
     const result = await pool.query(query);
@@ -982,9 +982,9 @@ app.delete('/api/setores/:id', async (req, res) => {
 });
 
 // Obter todos os níveis de técnicos
-app.get('/api/niveis-tecnico', async (req, res) => {
+app.get('/api/nivel-tecnico', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM niveis_tecnico ORDER BY id');
+    const result = await pool.query('SELECT * FROM nivel_tecnico ORDER BY id');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
